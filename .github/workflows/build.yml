@@ -20,9 +20,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install tools (sample; real ops use ci.Dockerfile image)
+        # gcovr はバージョンで集計仕様が変わるため pin する（ローカル検証と同一版）
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake g++ ninja-build gcovr
+          sudo apt-get install -y --no-install-recommends cmake g++ ninja-build
+          pipx install gcovr==8.6
 
       - name: Architecture constraint check (04-04)
         run: scripts/check_layer_deps.sh
@@ -41,12 +43,13 @@ jobs:
         run: python3 scripts/build.py --apps ALL --preset host-coverage --test
 
       - name: "Coverage gate (SWE.4: ASIL-B C0/C1 100%)"
+        # 対象は実装ソース（src/）のみ。契約面ヘッダの protected `= default`
+        # 特殊メンバ（スライシング防止の定型・非使用）が行カバレッジに紛れ込むのを防ぐ。
         # --exclude-throw-branches / --exclude-unreachable-branches:
-        #   gcovr はコンパイラ生成の例外・到達不能分岐も分岐数に数えるため、
-        #   gcov の C1（Taken at least once）と基準を揃えるための標準的な除外設定
+        #   コンパイラ生成の例外・到達不能分岐を除外し、gcov の C1 と基準を揃える
         run: |
           gcovr --root . \
-                --filter 'app/' --filter 'pf/vehicle_api/' \
+                --filter 'app/[^/]+/src/' --filter 'pf/vehicle_api/src/' \
                 --exclude-throw-branches --exclude-unreachable-branches \
-                --branches --txt \
+                --txt --txt-metric branch \
                 --fail-under-line 100 --fail-under-branch 100

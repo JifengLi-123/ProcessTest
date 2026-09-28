@@ -88,7 +88,9 @@ ctest --preset host-coverage -L swe5    # SWE.5 統合検証（5ケース）
 ctest --preset host-coverage -L swe6    # SWE.6 適格性テスト・ホストサブセット（6ケース）
 ./build/host-coverage/ecu/ecu_app       # 統合ソフトウェア（01-50）の SIL デモ
 scripts/check_layer_deps.sh             # アーキテクチャ制約チェック（CI 必須ステップ）
-gcovr --root . --filter 'app/' --filter 'pf/vehicle_api/' --branches --txt   # カバレッジ集計
+gcovr --root . --filter 'app/[^/]+/src/' --filter 'pf/vehicle_api/src/' \
+      --exclude-throw-branches --exclude-unreachable-branches \
+      --txt --txt-metric branch                                # カバレッジ集計（CIゲートと同一条件）
 ```
 
 ## SOTA（Software OTA）対応 — ライブラリ依存性の設計

@@ -25,11 +25,13 @@ jobs:
         run: docker build -f docker/ci.Dockerfile -t processtest-ci:${{ github.sha }} docker/
 
       # main へのマージ時のみレジストリへ push する（PR ではビルド確認のみ）
+      # コンテナレジストリのリポジトリ名は小文字必須のため ${GITHUB_REPOSITORY,,} で変換する
       - name: Push to GHCR
         if: github.event_name == 'push'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          repo_lc="${GITHUB_REPOSITORY,,}"
           for img in dev ci; do
-            docker tag "processtest-${img}:${{ github.sha }}" "ghcr.io/${{ github.repository }}/processtest-${img}:${{ github.sha }}"
-            docker push "ghcr.io/${{ github.repository }}/processtest-${img}:${{ github.sha }}"
+            docker tag "processtest-${img}:${{ github.sha }}" "ghcr.io/${repo_lc}/processtest-${img}:${{ github.sha }}"
+            docker push "ghcr.io/${repo_lc}/processtest-${img}:${{ github.sha }}"
           done

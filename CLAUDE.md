@@ -51,8 +51,9 @@ ctest --test-dir build/host-coverage -L swe4|swe5|swe6  # 工程別テスト
 # アーキテクチャ整合チェック（コミット前に必ず実行）
 scripts/check_layer_deps.sh
 
-# カバレッジ（ASIL-B: app/ + pf/vehicle_api/ で C0/C1 100% 必須。CI でゲート）
-gcovr --root . --filter 'app/' --filter 'pf/vehicle_api/' --branches --txt
+# カバレッジ（ASIL-B: 実装ソース src/ で C0/C1 100% 必須。CI でゲート。gcovr==8.6 に pin）
+gcovr --root . --filter 'app/[^/]+/src/' --filter 'pf/vehicle_api/src/' \
+      --exclude-throw-branches --exclude-unreachable-branches --txt --txt-metric branch
 ```
 
 ## 契約バージョン管理（SOTA）
