@@ -1,0 +1,28 @@
+# Doxygen 設定（SWE.3: ソースコードから API リファレンスを生成）
+# 実行方法（リポジトリルートで）: doxygen tools/doxygen/Doxyfile
+# 注: Doxygen を 04-05 の代替とする場合は、SWE.2 でシーケンス図・I/F 設計が
+#     確定していることを着手前に確認すること（SWE.3 ガイドライン 1.2）。
+
+PROJECT_NAME           = "ProcessTest"
+PROJECT_BRIEF          = "A-SPICE SWE process sample: motor control (PF/APP/ECU)"
+OUTPUT_DIRECTORY       = build/doxygen
+OUTPUT_LANGUAGE        = Japanese
+
+INPUT                  = pf app ecu
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp *.cpp *.md
+
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+
+HAVE_DOT               = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+
+# @pre / @post（契約プログラミング）を目立たせる
+ALIASES                =

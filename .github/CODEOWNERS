@@ -1,0 +1,25 @@
+# レイヤー別オーナー定義（レビュー独立性の担保: SWE.3 Step 7）
+# チームハンドルはサンプル。実プロジェクトの GitHub Team に置き換えること。
+
+# PF レイヤー（Firmware・Vehicle API 契約面）
+/pf/                                @your-org/pf-team
+
+# 車載 API モックは契約面との乖離を防ぐため PF チームが管理する
+/test/unit/mocks/vapi_mock/         @your-org/pf-team
+/test/unit/mocks/fw_mock/           @your-org/pf-team
+
+# APP レイヤー（アプリ別チーム）
+/app/motor_control/                 @your-org/app-motor-team
+/test/unit/app/motor_control/       @your-org/app-motor-team
+
+# 統合ルート（01-50）・ビルド構成・CI はアーキテクト＋CM が管理
+/ecu/                               @your-org/arch-team
+/CMakeLists.txt                     @your-org/arch-team
+/CMakePresets.json                  @your-org/arch-team
+/cmake/                             @your-org/arch-team
+/docker/                            @your-org/arch-team
+/.github/                           @your-org/arch-team
+/scripts/                           @your-org/arch-team
+
+# プロセス成果物（要求・設計・テスト文書・トレーサビリティ）
+/docs/                              @your-org/qa-team

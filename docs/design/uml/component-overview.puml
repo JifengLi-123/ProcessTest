@@ -1,0 +1,50 @@
+@startuml component-overview
+' 04-04 §2 コンポーネント構成図（PlantUML 版。設計成果物の UML は PlantUML で管理する）
+title ProcessTest コンポーネント構成（PF / APP / ECU）
+
+skinparam componentStyle rectangle
+
+package "ecu/ 統合ルート (01-50)" {
+    [main\n(wiring のみ)] as MAIN
+}
+
+package "app/ APPレイヤー" {
+    [MOD-001\nMotorController] as MOD1
+}
+
+package "pf/vehicle_api/ (契約面 + 実装)" {
+    interface "SW-IF-001\nIPwmService" as IF1
+    interface "SW-IF-002\nIIgnitionService" as IF2
+    [MOD-002 PwmService] as MOD2
+    [MOD-003 IgnitionService] as MOD3
+}
+
+package "pf/firmware/ (APP非公開)" {
+    interface "FW-IF-001\nIPwmHw" as IF3
+    interface "FW-IF-002\nIIgnSignal" as IF4
+    [MOD-201 SilPwmHw\n(実機: HW実装)] as MOD4
+    [MOD-202 SilIgnSignal\n(実機: HW実装)] as MOD5
+}
+
+MAIN ..> MOD1 : 生成・注入
+MAIN ..> MOD2 : 生成・注入
+MAIN ..> MOD3 : 生成・注入
+MAIN ..> MOD4 : 生成
+MAIN ..> MOD5 : 生成
+
+MOD1 --( IF1
+MOD1 --( IF2
+IF1 -- MOD2
+IF2 -- MOD3
+
+MOD2 --( IF3
+MOD3 --( IF4
+IF3 -- MOD4
+IF4 -- MOD5
+
+note right of MOD1
+  APP は契約面（pf/vapi）のみに依存。
+  Firmware への依存は CMake PRIVATE リンク +
+  scripts/check_layer_deps.sh で禁止。
+end note
+@enduml

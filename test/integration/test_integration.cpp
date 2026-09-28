@@ -2,20 +2,22 @@
  * @file test_integration.cpp
  * @brief ソフトウェア統合テスト（SWE.5）
  *
- * @details 対応テスト仕様: 08-50（docs/swe5/08-50-integration-test-specification.md）
- *          APP レイヤー（MotorController）と PF レイヤー（SIL 実装の車載 API:
- *          SilPwmService / SilIgnitionService）を統合し、レイヤー間 I/F
- *          （SW-IF-001 / SW-IF-002）の整合性と統合後の振る舞いを検証する。
- *          ユニットテストと異なり、PF 側の値域検証を含めた
- *          コンポーネント間の相互作用を確認する。
+ * @details 対応テスト仕様: 08-50（docs/test/swe5/08-50-integration-test-specification.md）
+ *          3 レイヤー（APP: MotorController → Vehicle API: PwmService/
+ *          IgnitionService → Firmware SIL: SilPwmHw/SilIgnSignal）を統合し、
+ *          レイヤー間 I/F（SW-IF-001/002・FW-IF-001/002）の整合性と
+ *          統合後の振る舞いを検証する。統合ルート（ecu/main.cpp）と同じ
+ *          wiring を用いる。
  */
 #include <gtest/gtest.h>
 
 #include <vector>
 
-#include "motor_controller.hpp"
-#include "sil_ignition_service.hpp"
-#include "sil_pwm_service.hpp"
+#include "app/motor_control/motor_controller.hpp"
+#include "pf/fw/sil_ign_signal.hpp"
+#include "pf/fw/sil_pwm_hw.hpp"
+#include "pf/vapi/ignition_service.hpp"
+#include "pf/vapi/pwm_service.hpp"
 
 namespace
 {
@@ -23,20 +25,25 @@ namespace
 using app::ControlStatus;
 using app::MotorController;
 using app::MotorState;
-using pf::IgnitionState;
-using pf::sil::SilIgnitionService;
-using pf::sil::SilPwmService;
+using pf::fw::IgnLineLevel;
+using pf::fw::SilIgnSignal;
+using pf::fw::SilPwmHw;
+using pf::vapi::IgnitionService;
+using pf::vapi::PwmService;
 
 class IntegrationTest : public ::testing::Test
 {
 protected:
-    SilPwmService pwm{};
-    SilIgnitionService ignition{};  // デフォルト IG-ON
-    MotorController controller{pwm, ignition};
+    // 統合ルート（ecu/）と同一の wiring: Firmware SIL → Vehicle API → APP
+    SilPwmHw pwmHw{};
+    SilIgnSignal ignSignal{};  // デフォルト High（IG-ON 相当）
+    PwmService pwmService{pwmHw};
+    IgnitionService ignitionService{ignSignal};
+    MotorController controller{pwmService, ignitionService};
 };
 
-// SWE5-TC-001（正常系）: I/F 整合性 — APP の全出力が PF 車載 API に受理される
-TEST_F(IntegrationTest, TC001_AllAppOutputsAcceptedByPfApi)
+// SWE5-TC-001（正常系）: I/F 整合性 — APP の全出力が PF を通り HW に到達する
+TEST_F(IntegrationTest, TC001_AllAppOutputsAcceptedThroughPf)
 {
     ASSERT_EQ(controller.init(), ControlStatus::Ok);
 
@@ -48,10 +55,10 @@ TEST_F(IntegrationTest, TC001_AllAppOutputsAcceptedByPfApi)
         EXPECT_EQ(controller.applyTargetSpeed(speed), ControlStatus::Ok)
             << "speed=" << speed;
     }
-    EXPECT_EQ(pwm.GetHistory().size(), speeds.size());
+    EXPECT_EQ(pwmHw.GetHistory().size(), speeds.size());
 
-    // PF が受理した値は常に [DUTY_MIN, DUTY_MAX] の範囲内（04-05 後条件）
-    for (const float duty : pwm.GetHistory())
+    // HW が受理した値は常に [DUTY_MIN, DUTY_MAX] の範囲内（04-05 後条件）
+    for (const float duty : pwmHw.GetHistory())
     {
         EXPECT_GE(duty, MotorController::DUTY_MIN);
         EXPECT_LE(duty, MotorController::DUTY_MAX);
@@ -70,14 +77,14 @@ TEST_F(IntegrationTest, TC002_ContinuousCommandSequence)
     EXPECT_EQ(controller.getState(), MotorState::Running);
     EXPECT_FLOAT_EQ(controller.getLastCommandedSpeed(), 2000.0F);
 
-    ASSERT_EQ(pwm.GetHistory().size(), 3U);
-    EXPECT_FLOAT_EQ(pwm.GetHistory()[0], 20.0F);  // 1000/6000 → 20.0%
-    EXPECT_FLOAT_EQ(pwm.GetHistory()[1], 65.0F);  // 4000/6000 → 65.0%
-    EXPECT_FLOAT_EQ(pwm.GetHistory()[2], 35.0F);  // 2000/6000 → 35.0%
+    ASSERT_EQ(pwmHw.GetHistory().size(), 3U);
+    EXPECT_FLOAT_EQ(pwmHw.GetHistory()[0], 20.0F);  // 1000/6000 → 20.0%
+    EXPECT_FLOAT_EQ(pwmHw.GetHistory()[1], 65.0F);  // 4000/6000 → 65.0%
+    EXPECT_FLOAT_EQ(pwmHw.GetHistory()[2], 35.0F);  // 2000/6000 → 35.0%
 }
 
-// SWE5-TC-003（異常系）: 範囲外コマンド混在時、正常コマンドのみ PF へ到達
-TEST_F(IntegrationTest, TC003_InvalidCommandsDoNotReachPf)
+// SWE5-TC-003（異常系）: 範囲外コマンド混在時、正常コマンドのみ HW へ到達
+TEST_F(IntegrationTest, TC003_InvalidCommandsDoNotReachHw)
 {
     ASSERT_EQ(controller.init(), ControlStatus::Ok);
 
@@ -87,44 +94,48 @@ TEST_F(IntegrationTest, TC003_InvalidCommandsDoNotReachPf)
     EXPECT_EQ(controller.applyTargetSpeed(6000.0F), ControlStatus::Ok);
 
     // 異常コマンドはレイヤー間 I/F へ到達しないこと
-    ASSERT_EQ(pwm.GetHistory().size(), 2U);
-    EXPECT_FLOAT_EQ(pwm.GetHistory()[0], 50.0F);
-    EXPECT_FLOAT_EQ(pwm.GetHistory()[1], MotorController::DUTY_MAX);
+    ASSERT_EQ(pwmHw.GetHistory().size(), 2U);
+    EXPECT_FLOAT_EQ(pwmHw.GetHistory()[0], 50.0F);
+    EXPECT_FLOAT_EQ(pwmHw.GetHistory()[1], MotorController::DUTY_MAX);
 }
 
 // SWE5-TC-004（正常系）: IG-ON → IG-OFF → IG-ON の車両状態シナリオ統合動作
-//                        （SW-REQ-PWR-001）
+//                        （SW-REQ-PWR-001。IG 信号ライン→車両状態解釈を含む）
 TEST_F(IntegrationTest, TC004_IgnitionCycleScenario)
 {
     ASSERT_EQ(controller.init(), ControlStatus::Ok);
 
-    // IG-ON: 通常制御
+    // IG-ON（ライン High）: 通常制御
     EXPECT_EQ(controller.applyTargetSpeed(3000.0F), ControlStatus::Ok);
     EXPECT_EQ(controller.getState(), MotorState::Running);
 
-    // IG-OFF: 安全停止（停止デューティ比 0% が PF へ出力される）
-    ignition.SetIgnitionState(IgnitionState::Off);
+    // IG-OFF（ライン Low）: 安全停止（停止デューティ比 0% が HW へ出力される）
+    ignSignal.SetLevel(IgnLineLevel::Low);
     EXPECT_EQ(controller.applyTargetSpeed(3000.0F), ControlStatus::IgnitionOff);
     EXPECT_EQ(controller.getState(), MotorState::Ready);
-    EXPECT_FLOAT_EQ(pwm.GetLastDutyCycle(), MotorController::STOP_DUTY_PERCENT);
+    EXPECT_FLOAT_EQ(pwmHw.GetLastDuty(), MotorController::STOP_DUTY_PERCENT);
+
+    // IG 信号異常（ライン Fault → Unknown 解釈）: 同じく安全停止側
+    ignSignal.SetLevel(IgnLineLevel::Fault);
+    EXPECT_EQ(controller.applyTargetSpeed(3000.0F), ControlStatus::IgnitionOff);
 
     // IG-ON 復帰: 制御再開
-    ignition.SetIgnitionState(IgnitionState::On);
+    ignSignal.SetLevel(IgnLineLevel::High);
     EXPECT_EQ(controller.applyTargetSpeed(1500.0F), ControlStatus::Ok);
     EXPECT_EQ(controller.getState(), MotorState::Running);
-    EXPECT_FLOAT_EQ(pwm.GetLastDutyCycle(), 27.5F);
+    EXPECT_FLOAT_EQ(pwmHw.GetLastDuty(), 27.5F);
 }
 
-// SWE5-TC-005（異常系）: PF 故障注入 → APP のフェール動作 → 復帰の統合確認
-TEST_F(IntegrationTest, TC005_PfFailureAndRecovery)
+// SWE5-TC-005（異常系）: Firmware 故障注入 → APP のフェール動作 → 復帰の統合確認
+TEST_F(IntegrationTest, TC005_FirmwareFailureAndRecovery)
 {
     ASSERT_EQ(controller.init(), ControlStatus::Ok);
 
-    pwm.InjectFailure(true);
+    pwmHw.InjectFailure(true);
     EXPECT_EQ(controller.applyTargetSpeed(1000.0F), ControlStatus::HwError);
     EXPECT_EQ(controller.getState(), MotorState::Error);
 
-    pwm.InjectFailure(false);
+    pwmHw.InjectFailure(false);
     ASSERT_EQ(controller.init(), ControlStatus::Ok);
     EXPECT_EQ(controller.applyTargetSpeed(1000.0F), ControlStatus::Ok);
     EXPECT_EQ(controller.getState(), MotorState::Running);

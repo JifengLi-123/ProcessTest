@@ -1,0 +1,33 @@
+name: "[SWE.4] ユニット検証タスク"
+description: SWE.4（SWユニット検証）の作業チケット
+title: "[SWE.4] <モジュール名> ユニットテスト"
+labels: ["swe4"]
+body:
+  - type: input
+    id: artifacts
+    attributes:
+      label: 対象成果物 ID
+      value: "08-52, 08-50, 13-25, 13-50"
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: テスト対象（モジュール ID・ASIL）
+      placeholder: "MOD-001 MotorController（ASIL-B）"
+    validations:
+      required: true
+  - type: textarea
+    id: coverage
+    attributes:
+      label: カバレッジ目標（ASIL 別）
+      value: "ASIL-B: C0 100% / C1 100%（未達時は 15-01 逸脱根拠を作成）"
+  - type: textarea
+    id: done
+    attributes:
+      label: クローズ条件
+      value: |
+        - [ ] 08-50 テスト仕様のレビュー承認
+        - [ ] 全テストケース passed（13-50 記録）
+        - [ ] カバレッジ目標達成（CI の Coverage gate 通過）
+        - [ ] 不具合は Problem Record（SUP.9）起票済み

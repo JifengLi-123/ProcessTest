@@ -1,0 +1,33 @@
+name: "[SWE.6] 適格性テストタスク"
+description: SWE.6（SW適格性テスト）の作業チケット
+title: "[SWE.6] <コンポーネント名> 適格性テスト"
+labels: ["swe6"]
+body:
+  - type: input
+    id: artifacts
+    attributes:
+      label: 対象成果物 ID
+      value: "08-52, 08-50, 13-50"
+    validations:
+      required: true
+  - type: input
+    id: baseline
+    attributes:
+      label: テスト対象ベースライン（01-50 の版数）
+      placeholder: "ecu_app v0.2.0（ビルド番号・コミット SHA）"
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: 実施環境
+      value: "ホスト実行サブセット（CI）＋ 実機/HIL（docs/README.md の SWE.6 実施方針参照）"
+  - type: textarea
+    id: done
+    attributes:
+      label: クローズ条件
+      value: |
+        - [ ] 全 SW 要求（17-11）に対するテストケースの実施完了
+        - [ ] 全テストケース passed（13-50 記録）
+        - [ ] 未解決 Problem Record 0 件（または PO 承認済みの残存リスク記録）
+        - [ ] PO / PM による受入承認（人手必須・AI 委任禁止）

@@ -1,0 +1,35 @@
+# 開発/CI 用 Docker イメージのビルド・配布（docker/ 変更時のみ）
+# イメージのタグ・ダイジェストは Quality Plan（08-13）に記録すること（SUP.8）。
+name: image
+
+on:
+  push:
+    branches: [main]
+    paths: ['docker/**']
+  pull_request:
+    paths: ['docker/**']
+
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dev image
+        run: docker build -f docker/dev.Dockerfile -t processtest-dev:${{ github.sha }} docker/
+
+      - name: Build ci image
+        run: docker build -f docker/ci.Dockerfile -t processtest-ci:${{ github.sha }} docker/
+
+      # main へのマージ時のみレジストリへ push する（PR ではビルド確認のみ）
+      - name: Push to GHCR
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          for img in dev ci; do
+            docker tag "processtest-${img}:${{ github.sha }}" "ghcr.io/${{ github.repository }}/processtest-${img}:${{ github.sha }}"
+            docker push "ghcr.io/${{ github.repository }}/processtest-${img}:${{ github.sha }}"
+          done

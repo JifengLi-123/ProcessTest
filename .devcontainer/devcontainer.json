@@ -1,0 +1,20 @@
+{
+    "name": "ProcessTest Dev",
+    "build": {
+        "dockerfile": "../docker/dev.Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "anthropic.claude-code"
+            ],
+            "settings": {
+                "cmake.useCMakePresets": "always"
+            }
+        }
+    },
+    "remoteUser": "vscode",
+    "postCreateCommand": "cmake --version && g++ --version"
+}

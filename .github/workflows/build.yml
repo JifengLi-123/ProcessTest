@@ -1,0 +1,50 @@
+# CI/CD パイプライン（SWE.3 Step 4.3 / SWE.4〜6 テスト自動実行）
+# PR 時: ビルド + アーキテクチャ制約チェック + 全工程テスト + カバレッジゲート
+# 本ファイルは SUP.8（構成管理）の対象。
+#
+# 注: 実運用では `container: ghcr.io/<org>/processtest-ci:<tag>`（docker/ci.Dockerfile
+#     から image.yml がビルドした固定イメージ）内で実行し、ツールバージョンを
+#     Quality Plan（08-13）記載値に固定すること。本サンプルでは ubuntu-latest に
+#     直接インストールして代替する。
+name: build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools (sample; real ops use ci.Dockerfile image)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake g++ ninja-build gcovr
+
+      - name: Architecture constraint check (04-04)
+        run: scripts/check_layer_deps.sh
+
+      - name: Configure (host-coverage preset)
+        run: cmake --preset host-coverage
+
+      - name: Build (SWE.3 / 01-50 ecu_app)
+        run: cmake --build --preset host-coverage -j
+
+      - name: Unit tests (SWE.4)
+        run: ctest --test-dir build/host-coverage -L swe4 --output-on-failure
+
+      - name: Integration tests (SWE.5)
+        run: ctest --test-dir build/host-coverage -L swe5 --output-on-failure
+
+      - name: Qualification tests - host subset (SWE.6)
+        run: ctest --test-dir build/host-coverage -L swe6 --output-on-failure
+
+      - name: Coverage gate (SWE.4: ASIL-B C0/C1 100%)
+        run: |
+          gcovr --root . \
+                --filter 'app/' --filter 'pf/vehicle_api/' \
+                --branches --txt \
+                --fail-under-line 100 --fail-under-branch 100

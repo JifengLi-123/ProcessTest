@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "host-debug",
+      "displayName": "Host Debug (unit/integration/qualification tests)",
+      "binaryDir": "${sourceDir}/build/host-debug",
+      "toolchainFile": "${sourceDir}/cmake/toolchain/host-gcc.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "host-coverage",
+      "displayName": "Host Debug + Coverage (SWE.4 C0/C1)",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-coverage",
+      "cacheVariables": { "ENABLE_COVERAGE": "ON" }
+    },
+    {
+      "name": "host-release",
+      "displayName": "Host Release (SIL demo)",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "target-arm",
+      "displayName": "Target ARM cross build (requires arm-none-eabi toolchain)",
+      "binaryDir": "${sourceDir}/build/target-arm",
+      "toolchainFile": "${sourceDir}/cmake/toolchain/arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "host-debug", "configurePreset": "host-debug" },
+    { "name": "host-coverage", "configurePreset": "host-coverage" },
+    { "name": "host-release", "configurePreset": "host-release" },
+    { "name": "target-arm", "configurePreset": "target-arm" }
+  ],
+  "testPresets": [
+    {
+      "name": "host-debug",
+      "configurePreset": "host-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "host-coverage",
+      "configurePreset": "host-coverage",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

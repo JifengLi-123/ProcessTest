@@ -1,0 +1,41 @@
+name: "[SWE.3] 詳細設計・実装タスク"
+description: SWE.3（SW詳細設計 & ユニット実装）の作業チケット
+title: "[SWE.3] <機能名> 詳細設計・実装"
+labels: ["swe3"]
+body:
+  - type: input
+    id: artifacts
+    attributes:
+      label: 対象成果物 ID
+      value: "04-05, 11-05"
+    validations:
+      required: true
+  - type: input
+    id: input-artifacts
+    attributes:
+      label: インプット成果物（承認状態を確認すること）
+      description: 04-04 / 17-11 / 17-08 の版数・承認状態
+      placeholder: "04-04-PT01 v1.0 (Approved) / 17-11-PT01 v1.0 (Approved)"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 作業内容
+      description: 対象モジュール・ユニット・実装範囲
+    validations:
+      required: true
+  - type: input
+    id: branch
+    attributes:
+      label: 作業ブランチ（Issue 番号を含むこと）
+      placeholder: "feature/<Issue番号>-implement-xxx"
+  - type: textarea
+    id: done
+    attributes:
+      label: クローズ条件
+      value: |
+        - [ ] 04-05 のレビュー承認（実装着手前。設計先行）
+        - [ ] PR マージ（規定数の Approve = 13-19）
+        - [ ] 静的解析 重大違反 0 件
+        - [ ] トレーサビリティ（13-22）更新

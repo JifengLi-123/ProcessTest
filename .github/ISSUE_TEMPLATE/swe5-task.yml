@@ -1,0 +1,28 @@
+name: "[SWE.5] 統合・統合検証タスク"
+description: SWE.5（SW統合 & 統合検証）の作業チケット
+title: "[SWE.5] <構成名> 統合テスト"
+labels: ["swe5"]
+body:
+  - type: input
+    id: artifacts
+    attributes:
+      label: 対象成果物 ID
+      value: "01-50, 08-50, 13-50"
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: 統合対象（レイヤー・I/F）
+      placeholder: "APP(app_motor_control) + PF(pf_vapi/pf_fw)。SW-IF-001/002"
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: クローズ条件
+      value: |
+        - [ ] 統合ビルド（ecu_app = 01-50）成功
+        - [ ] レイヤー間 I/F 整合性確認（04-04 との一致）
+        - [ ] 全統合テストケース passed（13-50 記録）
+        - [ ] ベースライン登録（SUP.8）
