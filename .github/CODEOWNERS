@@ -11,6 +11,8 @@
 # APP レイヤー（アプリ別チーム）
 /app/motor_control/                 @your-org/app-motor-team
 /test/unit/app/motor_control/       @your-org/app-motor-team
+/app/hvac/                          @your-org/app-hvac-team
+/test/unit/app/hvac/                @your-org/app-hvac-team
 
 # 統合ルート（01-50）・ビルド構成・CI はアーキテクト＋CM が管理
 /ecu/                               @your-org/arch-team

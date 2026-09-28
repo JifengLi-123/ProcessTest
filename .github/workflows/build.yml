@@ -27,24 +27,26 @@ jobs:
       - name: Architecture constraint check (04-04)
         run: scripts/check_layer_deps.sh
 
-      - name: Configure (host-coverage preset)
-        run: cmake --preset host-coverage
+      # PR: 変更のあった APP だけを選択ビルド・テストし CI 時間を削減する
+      # （pf/・cmake/ 等の共通部変更時は自動で ALL になる。scripts/build.py 参照）
+      - name: Selective build & test (PR - changed apps only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main --depth=100
+          python3 scripts/build.py --changed --preset host-coverage --test
 
-      - name: Build (SWE.3 / 01-50 ecu_app)
-        run: cmake --build --preset host-coverage -j
+      # main への push: 常に全 APP をビルド・テストする（フルゲート）
+      - name: Full build & test (main - all apps)
+        if: github.event_name != 'pull_request'
+        run: python3 scripts/build.py --apps ALL --preset host-coverage --test
 
-      - name: Unit tests (SWE.4)
-        run: ctest --test-dir build/host-coverage -L swe4 --output-on-failure
-
-      - name: Integration tests (SWE.5)
-        run: ctest --test-dir build/host-coverage -L swe5 --output-on-failure
-
-      - name: Qualification tests - host subset (SWE.6)
-        run: ctest --test-dir build/host-coverage -L swe6 --output-on-failure
-
-      - name: Coverage gate (SWE.4: ASIL-B C0/C1 100%)
+      - name: "Coverage gate (SWE.4: ASIL-B C0/C1 100%)"
+        # --exclude-throw-branches / --exclude-unreachable-branches:
+        #   gcovr はコンパイラ生成の例外・到達不能分岐も分岐数に数えるため、
+        #   gcov の C1（Taken at least once）と基準を揃えるための標準的な除外設定
         run: |
           gcovr --root . \
                 --filter 'app/' --filter 'pf/vehicle_api/' \
+                --exclude-throw-branches --exclude-unreachable-branches \
                 --branches --txt \
                 --fail-under-line 100 --fail-under-branch 100

@@ -29,6 +29,7 @@
 |-----------|------|---------|-------|-------|
 | v1.0 | 2026-09-28 | 初版作成（PF/APP 2レイヤー構成） | Arch | Arch（Lead） |
 | v1.1 | 2026-09-28 | PF を Firmware / Vehicle API に分割し、統合ルート（ecu/）を追加した 3 層構成へ再編。fw 隠蔽の強制手段を追加 | Arch | Arch（Lead） |
+| v1.2 | 2026-09-28 | SOTA 対応（契約面 pf_vapi_if の分離・契約バージョニング・APP 共有ライブラリ化）と選択ビルド（BUILD_APPS）を追加。デモ用 APP（hvac）を追加 | Arch | Arch（Lead） |
 
 ---
 
@@ -55,6 +56,9 @@
 | Firmware ヘッダの非公開 | APP へ Firmware の include パスを伝播させない | ① pf_vapi が pf_fw を **PRIVATE リンク**（CMake） ② vapi 公開ヘッダは fw 型を**前方宣言のみ**で参照 ③ CI の include 検査 | SW-REQ-200/201 |
 | レビュー独立性 | レイヤー別のオーナーチームがレビューする | `.github/CODEOWNERS`（pf/** → PF チーム、app/** → APP チーム） | — |
 | ビルド構成の固定 | 全員・CI が同一構成でビルドする | `CMakePresets.json` + docker/（SUP.8 管理対象） | — |
+| APP のリンク独立性（SOTA） | APP は契約面（`pf_vapi_if`: ヘッダのみ）にのみリンクし、PF 実装への リンク依存を持たない。APP の実装ヘッダ include も禁止 | CMake ターゲット分離（pf_vapi_if / pf_vapi）+ `check_layer_deps.sh` 4/4 チェック + `ldd` 確認 | — |
+| 契約バージョニング（SOTA） | 車載 API 契約の互換性破壊は MAJOR+1（= APP .so の SOVERSION）、後方互換追加は MINOR+1。契約変更は本書 §4 の改訂として管理 | `pf/vapi/vapi_version.hpp` + `cmake/AppModule.cmake`（SOVERSION 自動付与） | — |
+| 選択ビルド | CI は変更のあった APP のみビルド・テストする（PF・契約面テストは常時） | `BUILD_APPS` + `scripts/build.py --changed`（build.yml） | — |
 
 ---
 
@@ -113,6 +117,7 @@ flowchart TB
 | MOD-003 | IgnitionService | SW-IF-002 実装。IG 信号ライン状態の車両状態への解釈 | ASIL-B | Vehicle API | SW-REQ-201 | 同上 | closed |
 | MOD-201 | SilPwmHw | FW-IF-001 の SIL 実装（レジスタ値域検証・履歴記録・故障注入） | QM（検証用） | Firmware | —（検証系。孤立許容） | — | closed |
 | MOD-202 | SilIgnSignal | FW-IF-002 の SIL 実装（ライン状態模擬） | QM（検証用） | Firmware | —（検証系。孤立許容） | — | closed |
+| MOD-301 | FanController（app/hvac） | 選択ビルド・SOTA 実演用の 2 つ目の APP（デモ。正式成果物体系は MOD-001 参照） | QM（デモ） | APP | —（デモ。孤立許容） | — | closed |
 
 ---
 

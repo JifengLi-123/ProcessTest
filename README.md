@@ -21,16 +21,20 @@ ProcessTest/
 ├── cmake/
 │   ├── toolchain/                 # host-gcc.cmake / arm-none-eabi.cmake
 │   ├── CompilerWarnings.cmake     # 共通警告フラグ（-Werror）
-│   └── Coverage.cmake             # C0/C1 計測オプション
+│   ├── Coverage.cmake             # C0/C1 計測オプション
+│   └── AppModule.cmake            # APP共通定義（選択ビルド・SOTA用.so化・SOVERSION）
 ├── pf/                            # ═══ PFレイヤー（オーナー: PFチーム）═══
 │   ├── firmware/                  # HW依存層。include/pf/fw/ は Vehicle API にのみ公開
 │   │   ├── include/pf/fw/         #   FW-IF-001 IPwmHw / FW-IF-002 IIgnSignal + SIL実装ヘッダ
 │   │   └── src/                   #   SIL実装（実機ではHW実装に置換）
 │   └── vehicle_api/
 │       ├── include/pf/vapi/       # ★APPに公開する唯一の契約面（17-08対応・Doxygen契約記述）
+│       │                          #   i_*.hpp（抽象I/F）+ vapi_version.hpp（契約バージョン）
 │       └── src/                   #   実装（Firmwareへ委譲。fwは前方宣言+PRIVATEリンクで隠蔽）
-├── app/                           # ═══ APPレイヤー（オーナー: APP各チーム）═══
-│   └── motor_control/             # MOD-001。リンク先は pf_vapi のみ
+│                                  #   CMake: pf_vapi_if（契約面のみ）と pf_vapi（実装）に分離
+├── app/                           # ═══ APPレイヤー（オーナー: APP各チーム。選択ビルド対象）═══
+│   ├── motor_control/             # MOD-001。リンク先は pf_vapi_if（契約面）のみ
+│   └── hvac/                      # FanController（選択ビルド・SOTAデモ用の2つ目のAPP）
 ├── ecu/                           # ═══ 統合ルート（01-50 Integrated Software）═══
 │   └── src/main.cpp               # 全レイヤーの wiring（生成・注入）。ホストSILデモ実行可能
 ├── test/                          # ホストビルドでのみ有効（BUILD_TESTING）
@@ -38,6 +42,7 @@ ProcessTest/
 │   │   ├── mocks/vapi_mock/       #   車載APIモック（APPのSWE.4はこれで完結。PFチーム管理）
 │   │   ├── mocks/fw_mock/         #   Firmwareモック（Vehicle API自体のSWE.4用）
 │   │   ├── app/motor_control/     #   SWE4-TC-001〜013
+│   │   ├── app/hvac/              #   HVAC-TC-001〜004（デモ）
 │   │   └── pf/vehicle_api/        #   SWE4-TC-101〜106
 │   ├── integration/               # SWE.5（ctest -L swe5）: 3レイヤー統合
 │   └── qualification/             # SWE.6（ctest -L swe6）: SW要求ベース・ホスト実行サブセット
@@ -45,7 +50,9 @@ ProcessTest/
 │   ├── static-analysis/           # Parasoft/QAC ルール設定の置き場（運用ルールはREADME）
 │   └── doxygen/Doxyfile           # APIリファレンス生成設定
 ├── scripts/
-│   └── check_layer_deps.sh        # アーキテクチャ制約のCI強制（app→fw依存の禁止 等）
+│   ├── new_app.py                 # 新規APP雛形生成（規約準拠の骨格をC0/C1 100%状態で生成）
+│   ├── build.py                   # 選択ビルドラッパー（--apps / --changed / --package。CIが使用）
+│   └── check_layer_deps.sh        # アーキテクチャ整合のCI強制（依存規則+契約バージョン同期）
 ├── docs/                          # プロセス成果物（Docs as Code。成果物ID対応表は docs/README.md）
 │   ├── requirements/              # 17-11 SW要求仕様書・17-50 検証基準（SWE.1）
 │   ├── design/                    # 04-04・04-05×2分冊・uml/*.puml（SWE.2/3）
@@ -54,27 +61,55 @@ ProcessTest/
 └── build/                         # 生成物出力先（git管理外）
 ```
 
-## ビルドとテスト（CMake Presets）
+## ビルドとテスト
+
+### 選択ビルド（scripts/build.py — CI 時間の削減）
+
+CI/CD の頻度が高い前提のため、**変更のあった APP だけをビルド・テストする**仕組みを備える（PF と契約面テストは常時ビルド）。
 
 ```bash
-# 構成〜ビルド（カバレッジ計測付き。初回は GoogleTest 1.14.0 を FetchContent 取得）
-cmake --preset host-coverage
-cmake --build --preset host-coverage -j
+python3 scripts/new_app.py <name>                      # 新規 APP の雛形生成（テスト登録は自動発見）
+python3 scripts/build.py                               # 全 APP（ALL）
+python3 scripts/build.py --apps motor_control --test   # motor_control のみ + ctest
+python3 scripts/build.py --apps hvac --test            # hvac のみ（ecu/SWE.5/6 は自動スキップ）
+python3 scripts/build.py --apps NONE                   # PF のみ（docs 変更時の最小ビルド）
+python3 scripts/build.py --changed --test              # git 差分から対象 APP を自動判定（CI が使用）
+python3 scripts/build.py --clean-only                  # build/ 削除
+```
 
-# 工程別テスト実行（CI と同じラベル指定）
-ctest --preset host-coverage -L swe4    # SWE.4 ユニット検証（19ケース）
+`--changed` の判定: `app/<name>/**`・`test/unit/app/<name>/**` の変更 → その APP のみ / `docs/**`・`*.md` のみ → NONE / それ以外（pf/・cmake/・ecu/ 等の共通部）→ ALL。CMake 直接指定の場合は `-DBUILD_APPS="motor_control;hvac"`。
+
+### CMake Presets 直接利用
+
+```bash
+cmake --preset host-coverage && cmake --build --preset host-coverage -j
+ctest --preset host-coverage -L swe4    # SWE.4 ユニット検証（23ケース）
 ctest --preset host-coverage -L swe5    # SWE.5 統合検証（5ケース）
 ctest --preset host-coverage -L swe6    # SWE.6 適格性テスト・ホストサブセット（6ケース）
-
-# 統合ソフトウェア（01-50）の SIL デモ実行
-./build/host-coverage/ecu/ecu_app
-
-# アーキテクチャ制約チェック（CI 必須ステップと同一）
-scripts/check_layer_deps.sh
-
-# カバレッジ集計（CI では gcovr --fail-under-line/branch 100 でゲート）
-gcovr --root . --filter 'app/' --filter 'pf/vehicle_api/' --branches --txt
+./build/host-coverage/ecu/ecu_app       # 統合ソフトウェア（01-50）の SIL デモ
+scripts/check_layer_deps.sh             # アーキテクチャ制約チェック（CI 必須ステップ）
+gcovr --root . --filter 'app/' --filter 'pf/vehicle_api/' --branches --txt   # カバレッジ集計
 ```
+
+## SOTA（Software OTA）対応 — ライブラリ依存性の設計
+
+APP 単位の OTA 更新を可能にするため、依存関係を次のように設計している。
+
+| 設計 | 内容 |
+|------|------|
+| 契約面と実装の分離 | `pf_vapi_if`（**ヘッダのみ**の契約面）と `pf_vapi`（実装）を別ターゲットに分離。**APP がリンクするのは契約面だけ** |
+| APP のリンク独立性 | 車載 API は純粋仮想 I/F（ヘッダオンリー）のため、APP の `.so` は **PF 実装へのリンク依存を持たない**（`ldd` で libc/libstdc++ のみ。検証済み） |
+| OTA 配布単位 | `--preset host-sota`（`APPS_SHARED=ON`）で各 APP を `libapp_<name>.so.<MAJOR>.<MINOR>` としてビルド。`SOVERSION` = **車載 API 契約バージョン**（`pf/vapi/vapi_version.hpp` / `cmake/AppModule.cmake` で一元管理） |
+| 互換性ルール | 契約の互換性破壊（I/F 変更）→ MAJOR+1 = SOVERSION 更新 = 全 APP 再ビルド要。後方互換の追加 → MINOR+1 のみで APP 単体差し替え可 |
+| パッケージ生成 | `python3 scripts/build.py --preset host-sota --package dist/` で APP ごとの配布ツリー（`dist/<app>/lib/apps/*.so*`）を出力（CMake install COMPONENT 単位） |
+
+```bash
+# SOTA 配布単位の生成例
+python3 scripts/build.py --preset host-sota --package dist/
+# → dist/motor_control/lib/apps/libapp_motor_control.so.1.0（SONAME: .so.1）
+```
+
+> **実車適用時の注意:** C++ の仮想 I/F 境界はコンパイラ・STL バージョン間で ABI 互換が保証されないため、実プロダクトの SOTA 境界は C ABI・IPC（SOME/IP、ara::com 等）・コンテナ等で切るのが定石。本サンプルの「契約面ヘッダのみに依存し、実装は統合ルートで注入」という構造はそのまま移行できる。
 
 ## アーキテクチャ上の要点
 

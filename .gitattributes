@@ -1,0 +1,17 @@
+# 改行コードの固定（Windows 環境から commit しても CI の bash / CMake が壊れないようにする）
+* text=auto
+
+# CI・ビルドで実行されるスクリプトは LF 必須
+*.sh text eol=lf
+*.py text eol=lf
+
+# CMake・YAML・ソースコードも LF に統一
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.hpp text eol=lf
+*.cpp text eol=lf
+*.md text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf

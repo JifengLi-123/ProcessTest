@@ -5,6 +5,7 @@
     {
       "name": "host-debug",
       "displayName": "Host Debug (unit/integration/qualification tests)",
+      "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/host-debug",
       "toolchainFile": "${sourceDir}/cmake/toolchain/host-gcc.cmake",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
@@ -24,8 +25,20 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
     },
     {
+      "name": "host-sota",
+      "displayName": "Host Release + shared APP modules (SOTA packaging)",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-sota",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "APPS_SHARED": "ON",
+        "BUILD_TESTING": "OFF"
+      }
+    },
+    {
       "name": "target-arm",
       "displayName": "Target ARM cross build (requires arm-none-eabi toolchain)",
+      "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/target-arm",
       "toolchainFile": "${sourceDir}/cmake/toolchain/arm-none-eabi.cmake",
       "cacheVariables": {
@@ -38,6 +51,7 @@
     { "name": "host-debug", "configurePreset": "host-debug" },
     { "name": "host-coverage", "configurePreset": "host-coverage" },
     { "name": "host-release", "configurePreset": "host-release" },
+    { "name": "host-sota", "configurePreset": "host-sota" },
     { "name": "target-arm", "configurePreset": "target-arm" }
   ],
   "testPresets": [

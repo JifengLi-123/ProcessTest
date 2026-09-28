@@ -17,6 +17,7 @@
 #include "pf/fw/sil_pwm_hw.hpp"
 #include "pf/vapi/ignition_service.hpp"
 #include "pf/vapi/pwm_service.hpp"
+#include "pf/vapi/vapi_version.hpp"
 
 namespace
 {
@@ -49,6 +50,11 @@ void command(app::MotorController& controller, pf::fw::SilPwmHw& pwmHw,
 
 int main()
 {
+    // 車載 API 契約バージョン（SOTA 時の互換性確認に使用。= APP .so の SOVERSION）
+    std::printf("[ecu] pf::vapi contract v%u.%u\n",
+                static_cast<unsigned>(pf::vapi::VAPI_VERSION_MAJOR),
+                static_cast<unsigned>(pf::vapi::VAPI_VERSION_MINOR));
+
     // --- 統合（wiring）: Firmware SIL → Vehicle API → APP -------------------
     pf::fw::SilPwmHw pwmHw{};
     pf::fw::SilIgnSignal ignSignal{};
