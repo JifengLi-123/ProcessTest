@@ -79,13 +79,16 @@ gcovr --root . --filter 'app/[^/]+/src/' --filter 'pf/vehicle_api/src/' \
 4. **SOTA・選択ビルド対応**: `~/development/cmakeBuild.py` のパターンを踏襲し `scripts/build.py`（--apps / --changed / --package）と `BUILD_APPS` ゲートを導入。契約面 `pf_vapi_if` を実装から分離し APP のリンク独立性を確立、`host-sota` プリセット（APPS_SHARED=ON、SOVERSION=契約 MAJOR）追加。デモ用 2 つ目の APP `app/hvac`（FanController）追加。CI は PR で差分 APP のみビルド
 5. **ツールチェーン堅牢化**: GoogleTest に URL_HASH（SHA256）追加 / `.gitattributes`（LF 固定）追加 / 契約バージョン同期チェック（check 5/5）追加 / プリセットの generator を Ninja に固定
 6. **AI 主導開発向けスキャフォールド**: `scripts/new_app.py`（新規 APP の規約準拠雛形を一括生成。生成直後から C0/C1 100%）を追加。`test/CMakeLists.txt` の APP 別ユニットテスト登録を自動発見方式（`unit/app/<name>/*.cpp` を GLOB）へ変更し、APP 追加時の手編集を撤廃。include 構造は「モジュール毎 `include/<名前空間パス>/`」を維持する決定（AI の機械検査性・衝突耐性を優先。CLAUDE.md 冒頭の厳守事項参照）
+7. **CI/CD 有効化（GitHub Actions 稼働開始）**: origin（github.com/JifengLi-123/ProcessTest）へ push し、初回 CI の失敗 2 件を修正して build=success を確認（コミット 49c8530）。修正内容: ①カバレッジゲート — 契約面ヘッダの protected `= default` 特殊メンバ（非使用が正常）が行カバレッジを 97.5% に下げていたため、対象を実装ソース（`app/*/src/`・`pf/vehicle_api/src/`）に限定し gcovr を 8.6 に pin（pipx）②image.yml — GHCR はリポジトリ名小文字必須のため `${GITHUB_REPOSITORY,,}` で変換
 - 検証状態: 全 34 テスト合格（SWE.4=23・SWE.5=5・SWE.6=6）、対象 4 ソース C0/C1/Call 100%、レイヤーチェック 5/5 合格、SOTA .so の PF 非依存を ldd で確認済み。スキャフォールドは使い捨て APP（body_light）で生成→9 テスト合格→カバレッジ 100%→撤去まで検証済み
 
 ## 環境メモ・既知の TODO
 
-- ninja はこの WSL2 環境では `~/.local/bin/ninja`（v1.12.1、GitHub リリースから導入）。sudo・pip は使用不可だった
+- ninja はこの WSL2 環境では `~/.local/bin/ninja`（v1.12.1、GitHub リリースから導入）。gcovr==8.6 も pip --user 導入済み（pip は get-pip.py でブートストラップ）。sudo は使用不可
+- WSL の git は Windows 側 GCM を credential.helper に設定済み（push 時に認証が数分待ちになることがある。初回は Windows 側の認証プロンプトを完了する）
+- **origin: https://github.com/JifengLi-123/ProcessTest（public — 意図していなければ private 化を検討）。CI（build.yml）稼働中・green**
+- **以後の変更は Issue 番号付きブランチ（`feature/<番号>-...`）+ PR で行うこと**（main 直 push はブートストラップ期の例外だった）
 - `target-arm` プリセットは**プレースホルダ**（クロスコンパイラ・リンカスクリプト・fw 実機実装・startup が未整備。リンクまでは通らない）
-- CI（build.yml）は暫定で ubuntu-latest + apt。本命は `docker/ci.Dockerfile` イメージの digest 固定実行（TODO）
+- CI は暫定で ubuntu-latest + apt/pipx。本命は `docker/ci.Dockerfile` イメージの digest 固定実行（TODO）。ブランチ保護・CODEOWNERS のチーム実体化・GHCR push の動作確認（次回 docker/ 変更時に image.yml が走る）も未了
 - 静的解析（Parasoft/QAC）と MC/DC 計測ツールは未導入（ASIL C/D 到達前に必要。tools/static-analysis/README.md 参照）
-- GitHub 未 push（ローカル git のみ・未コミット）。コミット時は Issue 番号入りブランチ（`feature/<番号>-...`）を切ること
 - 上位のシステム要求（SYS-REQ）・Issue/PR 番号・CODEOWNERS のチーム名は仮置き
